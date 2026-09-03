@@ -1,0 +1,19 @@
+.DS_Store
+.build/
+.swiftpm/
+
+# Unpacked/local release outputs; signed archives remain publishable.
+dist/GPT Switcher.app/
+dist/gpt-switcher
+
+# Local account state must never enter source control.
+auth.json
+active-auth-profile.json
+migration-backup/
+profiles/
+*.log
+
+# Editor state
+*.swp
+*.xcuserstate
+xcuserdata/
