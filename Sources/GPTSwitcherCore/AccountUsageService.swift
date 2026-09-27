@@ -64,7 +64,7 @@ public enum AccountUsageServiceError: LocalizedError {
     case missingCodexExecutable
     case launchFailed
     case requestTimedOut
-    case serverError
+    case serverError(code: Int?)
     case invalidResponse
 
     public var errorDescription: String? {
@@ -73,7 +73,8 @@ public enum AccountUsageServiceError: LocalizedError {
         case .missingCodexExecutable: return "当前 ChatGPT 安装中没有找到 Codex 用量查询组件"
         case .launchFailed: return "无法启动本地用量查询组件"
         case .requestTimedOut: return "额度查询超时"
-        case .serverError: return "OpenAI 暂时无法返回这个账号的额度"
+        case .serverError(let code):
+            return code.map { "额度接口返回错误（代码 \($0)）" } ?? "额度接口返回错误"
         case .invalidResponse: return "收到的额度数据格式暂不支持"
         }
     }
@@ -108,7 +109,7 @@ public actor AccountUsageService {
             return nil
         }
         guard envelope.id == 2 else { return nil }
-        if envelope.error != nil { throw AccountUsageServiceError.serverError }
+        if let error = envelope.error { throw AccountUsageServiceError.serverError(code: error.code) }
         guard let response = envelope.result else { throw AccountUsageServiceError.invalidResponse }
 
         let snapshots: [(String, RateLimitSnapshotDTO)]
@@ -154,8 +155,7 @@ public actor AccountUsageService {
         guard isSafeCredentialFile(sourceAuth) else {
             throw AccountUsageServiceError.missingCredential
         }
-        let codexExecutable = installation.appURL.appendingPathComponent("Contents/Resources/codex")
-        guard fileManager.isExecutableFile(atPath: codexExecutable.path) else {
+        guard let codexExecutable = ChatGPTInspector.bundledCodexExecutable(in: installation.appURL) else {
             throw AccountUsageServiceError.missingCodexExecutable
         }
 
@@ -221,7 +221,7 @@ public actor AccountUsageService {
         }
 
         let requests = [
-            #"{"id":1,"method":"initialize","params":{"clientInfo":{"name":"gpt-switcher","title":"GPT Switcher","version":"1.2.0"},"capabilities":{"experimentalApi":true}}}"#,
+            #"{"id":1,"method":"initialize","params":{"clientInfo":{"name":"gpt-switcher","title":"GPT Switcher","version":"1.2.1"},"capabilities":{"experimentalApi":true}}}"#,
             #"{"method":"initialized"}"#,
             #"{"id":2,"method":"account/rateLimits/read"}"#,
         ].joined(separator: "\n") + "\n"

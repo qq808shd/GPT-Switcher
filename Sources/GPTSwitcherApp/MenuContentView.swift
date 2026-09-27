@@ -170,6 +170,8 @@ struct MenuContentView: View {
     }
 
     private func usageAccessibilityValue(_ id: ProfileID) -> String {
+        if model.isRefreshingUsage { return "正在获取额度" }
+        if let error = model.usageError(id) { return "额度更新失败：\(error)" }
         if let snapshot = model.usageByProfile[id] {
             let plan = snapshot.planDisplayName.map { "\($0) 套餐。" } ?? ""
             let windows = snapshot.buckets.flatMap(\.windows).map { window in
@@ -177,8 +179,6 @@ struct MenuContentView: View {
             }
             return plan + windows.joined(separator: "。")
         }
-        if model.isRefreshingUsage { return "正在获取额度" }
-        if model.usageError(id) != nil { return "额度暂不可用" }
         return "尚未获取额度"
     }
 }
@@ -189,7 +189,16 @@ private struct AccountUsageCompactView: View {
     let isLoading: Bool
 
     var body: some View {
-        if let snapshot, !rows(snapshot).isEmpty {
+        if isLoading {
+            Text("正在获取额度…")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else if let error {
+            Text("额度更新失败：\(error)")
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+        } else if let snapshot, !rows(snapshot).isEmpty {
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(rows(snapshot)) { row in
                     HStack(spacing: 4) {
@@ -202,14 +211,6 @@ private struct AccountUsageCompactView: View {
                     .monospacedDigit()
                 }
             }
-        } else if isLoading {
-            Text("正在获取额度…")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        } else if error != nil {
-            Text("额度暂不可用")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         } else {
             Text("点击“刷新账号额度”获取")
                 .font(.caption)

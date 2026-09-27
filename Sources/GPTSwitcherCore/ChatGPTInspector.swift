@@ -35,6 +35,16 @@ public struct ChatGPTInspector {
     public static let expectedBundleIdentifier = "com.openai.codex"
     public static let explicitUserDataEnvironment = "CODEX_ELECTRON_USER_DATA_PATH"
 
+    static func bundledCodexExecutable(in appURL: URL) -> URL? {
+        let resources = appURL.appendingPathComponent("Contents/Resources", isDirectory: true)
+        let candidates = [
+            "codex-cli/CodexCLI.app/Contents/MacOS/codex",
+            "codex",
+        ]
+        return candidates.map { resources.appendingPathComponent($0) }
+            .first { FileManager.default.isExecutableFile(atPath: $0.path) }
+    }
+
     public init() {}
 
     public func inspect(preferredPath: String? = nil) throws -> ChatGPTInstallation {
@@ -47,12 +57,13 @@ public struct ChatGPTInspector {
 
         let resources = appURL.appendingPathComponent("Contents/Resources", isDirectory: true)
         let asar = resources.appendingPathComponent("app.asar")
-        let codex = resources.appendingPathComponent("codex")
         let hasUserDataEnvironment = fileContainsASCII(
             asar,
             needle: Self.explicitUserDataEnvironment
         )
-        let hasCodexHome = fileContainsASCII(codex, needle: "CODEX_HOME")
+        let hasCodexHome = Self.bundledCodexExecutable(in: appURL).map {
+            fileContainsASCII($0, needle: "CODEX_HOME")
+        } ?? false
 
         return ChatGPTInstallation(
             appURL: appURL,

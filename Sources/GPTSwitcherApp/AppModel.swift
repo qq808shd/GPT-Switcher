@@ -68,8 +68,10 @@ final class AppModel: ObservableObject {
         let accounts = configuredAccounts
         guard !accounts.isEmpty else { return }
         isRefreshingUsage = true
+        for account in accounts { usageErrors[account.id] = nil }
 
         Task {
+            var allSucceeded = true
             for account in accounts {
                 do {
                     let snapshot = try await usageService.fetch(
@@ -79,11 +81,13 @@ final class AppModel: ObservableObject {
                     usageByProfile[account.id] = snapshot
                     usageErrors[account.id] = nil
                 } catch {
+                    allSucceeded = false
+                    usageByProfile[account.id] = nil
                     usageErrors[account.id] = error.localizedDescription
                     logger.log("Usage refresh failed for \(account.id.rawValue): \(type(of: error))")
                 }
             }
-            lastUsageRefresh = Date()
+            lastUsageRefresh = allSucceeded ? Date() : nil
             isRefreshingUsage = false
         }
     }

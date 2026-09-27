@@ -209,4 +209,37 @@ struct CoreTests {
         let notification = Data(#"{"method":"remoteControl/status/changed","params":{"status":"disabled"}}"#.utf8)
         #expect(try AccountUsageService.decodeRateLimitResponse(notification) == nil)
     }
+
+    @Test("Usage parser reports app-server errors without exposing response details")
+    func usageServerError() throws {
+        let response = Data(#"{"id":2,"error":{"code":-32603,"message":"private backend detail"}}"#.utf8)
+        do {
+            _ = try AccountUsageService.decodeRateLimitResponse(response)
+            Issue.record("Expected the app-server error")
+        } catch AccountUsageServiceError.serverError(let code) {
+            #expect(code == -32603)
+            #expect(!AccountUsageServiceError.serverError(code: code).localizedDescription.contains("private backend detail"))
+        }
+    }
+
+    @Test("Codex executable follows old and new ChatGPT bundle layouts")
+    func bundledCodexExecutable() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GPTSwitcherBundleTests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let resources = root.appendingPathComponent("Contents/Resources", isDirectory: true)
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+        let legacy = resources.appendingPathComponent("codex")
+        let current = resources.appendingPathComponent("codex-cli/CodexCLI.app/Contents/MacOS/codex")
+
+        #expect(ChatGPTInspector.bundledCodexExecutable(in: root) == nil)
+        try Data("legacy".utf8).write(to: legacy)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: legacy.path)
+        #expect(ChatGPTInspector.bundledCodexExecutable(in: root) == legacy)
+
+        try FileManager.default.createDirectory(at: current.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("current".utf8).write(to: current)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: current.path)
+        #expect(ChatGPTInspector.bundledCodexExecutable(in: root) == current)
+    }
 }
